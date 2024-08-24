@@ -10,6 +10,7 @@ function App() {
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [previewImage, setPreviewImage] = useState("");
   const [isFetching, setIsFetching] = useState(false);
+  const [logs, setLogs] = useState([]);
 
   const fetchStream = async () => {
     const response = await fetch("http://localhost:3000/");
@@ -36,34 +37,41 @@ function App() {
   const fetchFile = async () => {
     fetch("http://localhost:3000/file")
       .then(async (response) => {
-        setPreviewImage("");
-        setIsFetching(true);
-        const total = Number(response.headers.get("content-length"));
-        setTotalBytes(total);
+        const totalBytes = Number(response.headers.get("content-length"));
+        const values = [];
         const reader = response.body.getReader();
         let bytesReceived = 0;
-        let loaded = 0;
-        const values = [];
         let startTime = performance.now();
+
+        setPreviewImage("");
+        setIsFetching(true);
+        setTotalBytes(totalBytes);
 
         reader.read().then(function processResult(result) {
           if (result.done) {
-            setIsFetching(false);
             const blob = new Blob(values, { type: "image/jpeg" });
             const url = URL.createObjectURL(blob);
+
             setPreviewImage(url);
             console.log("Fetch complete");
+
+            console.log(logs);
+            setIsFetching(false);
             return;
           }
-          bytesReceived += result.value.length;
+
+          const startTimeMs = new Date();
+          const bytes = result.value.byteLength;
+          bytesReceived += bytes;
           setDownloadedBytes(bytesReceived);
+
           console.log(`Received ${bytesReceived} bytes of data so far`);
 
           values.push(result.value);
-          loaded += result.value.byteLength;
-          const progress = Math.round((loaded / total) * 100);
+
+          const progress = Math.round((bytesReceived / totalBytes) * 100);
+
           setProgress(progress);
-          console.log(values);
 
           // Calculate download speed in MB/s
           const currentTime = performance.now();
@@ -72,6 +80,22 @@ function App() {
 
           setDownloadSpeed(speedInMBps);
           console.log(`Download speed: ${speedInMBps.toFixed(2)} MB/s`);
+
+          const endTimeMs = new Date();
+          const ms = endTimeMs.getTime() - startTimeMs.getTime();
+          console.log(`Time taken: ${ms} ms`);
+
+          setLogs([
+            ...logs,
+            {
+              time: ms,
+              speed: speedInMBps,
+              progress: progress,
+              bytes,
+              bytesReceived,
+              totalBytes,
+            },
+          ]);
 
           return reader.read().then(processResult);
         });
@@ -86,7 +110,7 @@ function App() {
     <div className="wrapper">
       <h1 style={{ marginBottom: "1rem" }}>Streams</h1>
       <div style={{ display: "flex", gap: "5px" }}>
-        <button onClick={ isFetching ? null : fetchFile } disabled={isFetching}>
+        <button onClick={isFetching ? null : fetchFile} disabled={isFetching}>
           Fetch file
         </button>
         <button onClick={fetchStream}>Fetch Stream</button>
