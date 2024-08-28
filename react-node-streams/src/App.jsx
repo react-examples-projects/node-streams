@@ -38,6 +38,7 @@ function App() {
     fetch("http://localhost:3000/file")
       .then(async (response) => {
         const totalBytes = Number(response.headers.get("content-length"));
+        const logsData = [];
         const values = [];
         const reader = response.body.getReader();
         let bytesReceived = 0;
@@ -57,6 +58,7 @@ function App() {
 
             console.log(logs);
             setIsFetching(false);
+            console.log(logsData);
             return;
           }
 
@@ -76,26 +78,25 @@ function App() {
           // Calculate download speed in MB/s
           const currentTime = performance.now();
           const timeElapsed = (currentTime - startTime) / 1000; // Time in seconds
-          const speedInMBps = bytesReceived / 1048576 / timeElapsed; // Speed in MB per second
+          const speedInMBps = (bytesReceived / 1048576 / timeElapsed).toFixed(2); // Speed in MB per second
 
           setDownloadSpeed(speedInMBps);
-          console.log(`Download speed: ${speedInMBps.toFixed(2)} MB/s`);
+          console.log(`Download speed: ${speedInMBps} MB/s`);
 
           const endTimeMs = new Date();
           const ms = endTimeMs.getTime() - startTimeMs.getTime();
           console.log(`Time taken: ${ms} ms`);
 
-          setLogs([
-            ...logs,
-            {
-              time: ms,
-              speed: speedInMBps,
-              progress: progress,
-              bytes,
-              bytesReceived,
-              totalBytes,
-            },
-          ]);
+          logsData.push({
+            time: ms,
+            speed: speedInMBps,
+            progress: progress,
+            bytes,
+            bytesReceived,
+            totalBytes,
+          });
+
+          setLogs(logsData);
 
           return reader.read().then(processResult);
         });
@@ -115,6 +116,7 @@ function App() {
         </button>
         <button onClick={fetchStream}>Fetch Stream</button>
       </div>
+
       <p
         style={{
           fontSize: "14px",
@@ -126,8 +128,9 @@ function App() {
       >
         <span style={{ marginRight: "0.5rem" }}>Download Speed:</span>
         <FcDownload />
-        <span style={{ marginLeft: "0.3rem" }}>{downloadSpeed.toFixed(2)} MB/s</span>
+        <span style={{ marginLeft: "0.3rem" }}>{downloadSpeed} MB/s</span>
       </p>
+
       <p style={{ fontSize: "14px", marginTop: "1rem", marginBottom: "0.4rem" }}>
         {downloadedBytes} bytes of {totalBytes} bytes
       </p>
@@ -136,6 +139,23 @@ function App() {
         <div className="line-wobble" style={{ "--uib-progress": progress + "%" }}></div>
         {progress > 0 && <span style={{ fontSize: "12px" }}>{progress}%</span>}
       </div>
+
+      <pre
+        style={{
+          fontSize: "14px",
+          marginTop: "1rem",
+          marginBottom: "0.4rem",
+          height: "200px",
+          overflowY: "auto",
+        }}
+      >
+        {logs.map((log, index) => (
+          <div key={index} style={{ fontFamily: "consolas", fontSize: "13px" }}>
+            [{log.time}ms] ({log.speed}mb/s) ==&gt; {log.bytesReceived} bytes of {log.totalBytes}{" "}
+            bytes
+          </div>
+        ))}
+      </pre>
 
       {previewImage && (
         <img src={previewImage} alt="Preview" style={{ width: "300px", marginTop: "1rem" }} />
